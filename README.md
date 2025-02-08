@@ -1,17 +1,51 @@
 # Data Engineering with SnowFlake on AWS
 architectect and build ETL pipeline using snowflake on AWS
 
-A data pipeline in Snowflake and AWS is a set of tasks that automate the movement and transformation of data between systems. This project will be a series of different ways to Architect and build ETL pipelines on Snoflake.
+A data pipeline in Snowflake and AWS is a set of tasks that automates the movement and transformation of data between both systems. This project will be a series of different ways to Architect and build ETL pipelines on Snowflake.
 
 ## Serie 1: How to automate SnowPipe To Load Data From AWS S3 To Snowflake
 
-In this first serie, we will be learning how to automate data ingestion from S3 to SnowFlake using SnowPipe. Snowpipe is a Snowflake’s ingestion service that allows you to load your data continuously and  automatically into Snowflake. Automation here is based on event notifications. When a file is loaded into S3 and event notification is triggered to an SQS queue, the cloud storage notifies Snowpipe at the arrival of new data files to load. Snowpipe copies files into a queue, from which the data is loaded into the target table continuously.
+In this first serie, we will be learning how to automate data ingestion from S3 to SnowFlake using SnowPipe. Snowpipe is a Snowflake’s ingestion service that allows you to load your data continuously and  automatically into Snowflake. Automation here is based on event notifications. When a file is loaded into S3 an event notification is triggered to an SQS queue, the cloud storage notifies Snowpipe at the arrival of new data files to load. Snowpipe copies files into a queue, from which the data is loaded into the target table continuously.
 
 ![image](https://raw.githubusercontent.com/tmbothe/SnowFlake-Architect-and-build-data-pipeline-on-AWS/main/images/snow_aws.png)
 
+1- Files is loaded into s3 bucket
+2- S3 bucket tiggers an event notification to the sqs queue
+3- SQS notifies SnowPipe
+4- SnowPipe loads data into Snowflake's landing table
+7- The CDC task pulls data from the landing table and load into the production table
+9 - Another task aggregate the data and merge into the analytics table
+
 ## Data description
-There are two sources of dataset, the **Song Dataset** and the **Log Dataset** .  Both dataset are currently stored in amazon S3. These files will be read from Apache Airflow and stored in some staging tables. Then another process will extract the data from staging tables and load in final tables in AWS redshift datawarehouse.
- 
+For this process, we will be using a set od JSON files that contains lineitem data with the structure below:
+
+ #### Configuring Snowflake access to private S3 buckets
+ We are going to be running all our scripts from the Snowflake web UI. We assume that you already have an AWS account and access to Snowflake free trial.  
+ 1- login in AWS console and navigate to IAM. Create a policy with the code below, that give access to the S3 bucket we are going to be using. Replace the bucket placeholder by your bucket name Then create a role and attached the policy below.
+
+ ```
+   {
+    "Version": "2012-10-17",
+    "Statement": [
+        {
+            "Effect": "Allow",
+            "Action": [
+              "s3:GetObject",
+              "s3:GetObjectVersion",
+              "s3:PutObject",
+              "s3:DeleteObject",
+              "s3:DeleteObjectVersion"
+            ],
+            "Resource": "arn:aws:s3:::<bucket>/*"
+        },
+        {
+            "Effect": "Allow",
+            "Action": "s3:ListBucket",
+            "Resource": "arn:aws:s3:::<bucket>"
+        }
+    ]
+}
+ ```
  ## Project Structure
  ```
  The project has two main files, here is the description:
