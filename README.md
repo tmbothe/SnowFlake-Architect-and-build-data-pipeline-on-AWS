@@ -21,7 +21,7 @@ For this process, we will be using a set od JSON files that contains lineitem da
 
  #### Configuring Snowflake access to private S3 buckets
  We are going to be running all our scripts from the Snowflake web UI. We assume that you already have an AWS account and access to Snowflake free trial.  
- 1- login in AWS console and navigate to IAM. Create a policy with the code below, that give access to the S3 bucket we are going to be using. Replace the bucket placeholder by your bucket name Then create a role and attached the policy below.
+ 1- login in AWS console and navigate to IAM. Create a policy with the code below, that give access to the S3 bucket we are going to be using. Replace the bucket placeholder by your bucket name. Create a role and attached the policy below.
 
  ```
    {
@@ -45,6 +45,16 @@ For this process, we will be using a set od JSON files that contains lineitem da
         }
     ]
 }
+ ```
+ 2- 
+
+ ```
+  CREATE STORAGE INTEGRATION S3_INTEGRATION
+  TYPE = EXTERNAL_STAGE
+  STORAGE_PROVIDER = S3
+  ENABLED = TRUE
+  STORAGE_AWS_ROLE_ARN =  '<arn:aws:iam::123456789123:role/Role_For_Snowflake>'
+  STORAGE_ALLOWED_LOCATIONS = ('s3://<bucket>');
  ```
  ## Project Structure
  ```
