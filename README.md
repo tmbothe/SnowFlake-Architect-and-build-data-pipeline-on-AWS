@@ -74,48 +74,36 @@ Now, return to the AWS console, select IAM, and click Roles from the left side m
 
  ![image](https://raw.githubusercontent.com/tmbothe/SnowFlake-Architect-and-build-data-pipeline-on-AWS/main/images/role_integration.png)
 
- ## Project Structure
- ```
- The project has two main files, here is the description:
-   Data-Pipelines-with-Airflow
-    |
-    |   dags
-    |      | sql_statements.py
-    |      | udac_airflow_dag.py
-    |      | images 
-    |   plugins
-    |      | helpers
-    |          sql_queries.py
-    |   operators
-    |      | data_quality.py
-    |      | load_dimension.py
-    |      | load_fact.py
-    |      | stage_redshift.py
- ``` 
+#### 2- Create external stage 
 
-   1 - `sql_statements.py` : Under the dag folder, the sql_statements has scripts to create staging and datawarehouse tables.<br>
-   2 - `udac_airflow_dag`  : the udac_airflow_dag file contains all airflow task and DAG definition.<br>
- 
-   **The  plugins folder has two subfolder: the helpers folders that contains the helpers files, and the operators folder that has all customs operators define for the project. <br>**
-   3 - `sql_queries.py`    : This file has all select statements to populate all facts and dimension tables.<br>
-   4 - `data_quality.py`   : This file defines all customs logic that will help checking the data quality once the ETL is complete.<br>
-   5 - `load_dimension.py` : File to load dimension tables.<br>
-   6 - `load_fact.py`      : File to load fact table.<br>
-   7 -  `stage_redshift.py`:  File to load staging tables.<br>
- 
-## Installation 
+Let's create an external stage that uses the storage integration object we created earlier. We will try and list the files in the stage, and if we do not get any issues, it means that the configuration is correctly set up. Please ensure that you put in your desired bucket name in the following code segment. Also, make sure that you select a database and a schema before running the following commands:
 
-- Install [python 3.8](https://www.python.org)
-- Install [Apache Airflow](https://airflow.apache.org/docs/apache-airflow/stable/installation.html)
-- Clone the current repository. 
-- Create IAM user in AWS and get the user access key and secret key.
-- Launch and AWS redshift cluster and get the endpoint url as well as database connection information (Database name, port number , username and password).
-- Follow the instruction below to configure Redshift as well as AWS credentials connections.
- ![image](https://raw.githubusercontent.com/tmbothe/Data-Pipelines-with-Airflow/main/dags/images/connections1.PNG)
- ![image](https://raw.githubusercontent.com/tmbothe/Data-Pipelines-with-Airflow/main/dags/images/connections2.PNG)
- ![image](https://raw.githubusercontent.com/tmbothe/Data-Pipelines-with-Airflow/main/dags/images/connections3.PNG)
+```
+USE ROLE SYSADMIN;
+CREATE STAGE S3_RESTRICTED_STAGE
+  STORAGE_INTEGRATION = S3_INTEGRATION
+  URL = 's3://<bucket>'
+FILE_FORMAT= '';
+```
+Before creating our stage a file format for our JSON file since the data we will be loading is a JSON. But this step is optional. 
+```
+CREATE OR REPLACE FILE FORMAT JSON_LOAD_FORMAT TYPE = 'JSON' ;
 
+CREATE OR REPLACE STAGE S3_RESTRICTED_STAGE
+  STORAGE_INTEGRATION = s3_sf_data
+  URL = 's3://thim-snowflake-project/streams_dev/'
+  FILE_FORMAT=JSON_LOAD_FORMAT;
+```
+The we run `LIST @S3_RESTRICTED_STAGE` to list all files we currently have on our S3 bucket. Whe currently have two files there.
+ ![image](https://raw.githubusercontent.com/tmbothe/SnowFlake-Architect-and-build-data-pipeline-on-AWS/main/images/s3_stage_result.png)
 
- ## Final DAG
+#### 3- Create a Snowpipe and associate to the external stage 
+Let's now create a Snowpipe to enable the streaming of data. The `CREATE PIPE` . Notice that we have set AUTO_INGEST to true while creating the Snowpipe. Once we configure the events on AWS, the Snowpipe will automatically load files as they arrive in the bucket:
 
-![image](https://raw.githubusercontent.com/tmbothe/Data-Pipelines-with-Airflow/main/dags/images/final_DAG.PNG)
+CREATE OR REPLACE PIPE TX_LD_PIPE 
+AUTO_INGEST = true
+AS COPY INTO TRANSACTIONS FROM @SP_TRX_STAGE
+FILE_FORMAT = (TYPE = 'JSON');
+
+It is worth noting that although the Snowpipe is created, it will not load any data unless it is triggered manually through a REST API endpoint or the cloud platform generates an event that can trigger the Snowpipe. Run the SHOW PIPES command and copy the ARN value that is shown in the <b>notification_channel</b> field (as shown in the screenshot that follows). We will use that ARN value to configure event notification in AWS:
+ ![image](https://raw.githubusercontent.com/tmbothe/SnowFlake-Architect-and-build-data-pipeline-on-AWS/main/images/s3_pipe.png)
