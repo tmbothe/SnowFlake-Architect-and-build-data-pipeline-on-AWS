@@ -102,8 +102,26 @@ Let's now create a Snowpipe to enable the streaming of data. The `CREATE PIPE` .
 
 CREATE OR REPLACE PIPE TX_LD_PIPE 
 AUTO_INGEST = true
-AS COPY INTO TRANSACTIONS FROM @SP_TRX_STAGE
+AS COPY INTO LINEITEM_RAW_JSON FROM @S3_RESTRICTED_STAGE
 FILE_FORMAT = (TYPE = 'JSON');
+
+As we see, all files coming through Snowpipe will be loaded into our table `LINEITEM_RAW_JSON`.
 
 It is worth noting that although the Snowpipe is created, it will not load any data unless it is triggered manually through a REST API endpoint or the cloud platform generates an event that can trigger the Snowpipe. Run the SHOW PIPES command and copy the ARN value that is shown in the <b>notification_channel</b> field (as shown in the screenshot that follows). We will use that ARN value to configure event notification in AWS:
  ![image](https://raw.githubusercontent.com/tmbothe/SnowFlake-Architect-and-build-data-pipeline-on-AWS/main/images/s3_pipe.png)
+
+#### 3- Create SQS queue notification to trigger SnowPipe
+Log in back to AWS console where we will set up an event notification for the S3 bucket so that the Snowpipe gets triggered automatically upon the creation of a new file in the bucket. Click on your S3 bucket and select the Properties tab, then within the tab, click on Events. Click Add Notification on the Events screen:
+
+![image](https://raw.githubusercontent.com/tmbothe/SnowFlake-Architect-and-build-data-pipeline-on-AWS/main/images/s3_notification.png)
+As you see on the screenshot above, add the prefix which is the landing folder we created erlier in our landing S3 bucket.
+For event types, select all events.
+
+The scroll down to add the destination. In the destination section, select SQS Queue, select enter SQS queue ARN, and paste the ARN that you copied in step 6 into the SQS queue ARN field.
+
+![image](https://raw.githubusercontent.com/tmbothe/SnowFlake-Architect-and-build-data-pipeline-on-AWS/main/images/s3_pipe.png)
+
+At this stage, our integration should be working.
+Wait for some time, and in the Snowflake web UI, execute a SELECT  query on the table. You will see new data loaded in the table.
+
+![image](https://raw.githubusercontent.com/tmbothe/SnowFlake-Architect-and-build-data-pipeline-on-AWS/main/images/raw_data.png)
