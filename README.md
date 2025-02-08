@@ -233,3 +233,16 @@ After creating the task, we can run `SHOW TASKS` to show all current tasks. The 
 Now after activating the task, the data should be flowing in our lineitem table.
 
 ![image](https://raw.githubusercontent.com/tmbothe/SnowFlake-Architect-and-build-data-pipeline-on-AWS/main/images/select_lineitem.png)
+
+We can also run this command to view the history of our task and look into potential errors.
+
+```
+SELECT name, state,
+completed_time, scheduled_time, 
+error_code, error_message
+FROM TABLE(information_schema.task_history())
+WHERE name = 'LINEITEM_LOAD_TSK'
+ORDER BY COMPLETED_TIME DESC;
+```
+
+![image](https://raw.githubusercontent.com/tmbothe/SnowFlake-Architect-and-build-data-pipeline-on-AWS/main/images/Trouble_shootoing.png)
