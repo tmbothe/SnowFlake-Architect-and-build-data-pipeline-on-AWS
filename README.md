@@ -246,3 +246,51 @@ ORDER BY COMPLETED_TIME DESC;
 ```
 
 ![image](https://raw.githubusercontent.com/tmbothe/SnowFlake-Architect-and-build-data-pipeline-on-AWS/main/images/Trouble_shootoing.png)
+
+#### 6- Conjugating pipelines through a task tree
+
+To improve our pipeline further, we can create another table that will compute the total amount for each supplier by year. We will create another task that will run after when the data is added to our lineitem table.
+
+Here is the table creation script. 
+```
+CREATE OR REPLACE TABLE SUMMARY_SUPPLIERS (
+   SHIP_YEAR NUMBER,
+   SUPPLIER STRING,
+   TOTAL NUMBER(16,2)
+);
+```
+
+The the script to create the task.
+```
+CREATE OR REPLACE TASK refresh_summary_suppliers
+WAREHOUSE = COMPUTE_WH
+AS
+MERGE INTO SUMMARY_SUPPLIERS AS t
+USING (
+    SELECT YEAR(L_SHIPDATE) SHIP_YEAR,L_SUPPKEY SUPPLIER,SUM(L_QUANTITY*L_EXTENDEDPRICE) as TOTAL
+    FROM lineitem 
+    GROUP BY YEAR(L_SHIPDATE),L_SUPPKEY
+    ORDER BY TOTAL DESC 
+  ) AS s
+ ON s.SUPPLIER =t.SUPPLIER AND s.SHIP_YEAR=t.SHIP_YEAR
+ WHEN MATCHED THEN
+    UPDATE SET TOTAL = s.TOTAL
+ WHEN NOT MATCHED THEN 
+ INSERT (SHIP_YEAR,SUPPLIER,TOTAL)
+ VALUES(s.SHIP_YEAR,s.SUPPLIER,s.TOTAL)
+;
+```
+After creating the task we need to run the script below. First suspend the `LINEITEM_LOAD_TSK`, then add the  `REFRESH_TOP_SUPPLIERS` right after the `LINEITEM_LOAD_TSK`.
+
+```
+ALTER TASK LINEITEM_LOAD_TSK SUSPEND;
+ALTER TASK REFRESH_TOP_SUPPLIERS ADD AFTER LINEITEM_LOAD_TSK;
+ALTER TASK REFRESH_TOP_SUPPLIERS RESUME;
+ALTER TASK LINEITEM_LOAD_TSK RESUME;
+```
+
+This will create this DAG `LINEITEM_LOAD_TSK ---> REFRESH_TOP_SUPPLIERS`
+
+We can finally see that our `SUMMARY_SUPPLIERS` was automatically loaded .
+
+![image](https://raw.githubusercontent.com/tmbothe/SnowFlake-Architect-and-build-data-pipeline-on-AWS/main/images/supplier_summary.png)
