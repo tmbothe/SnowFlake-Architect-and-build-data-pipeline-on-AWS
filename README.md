@@ -9,20 +9,22 @@ In this first serie, we will be learning how to automate data ingestion from S3 
 
 ![image](https://raw.githubusercontent.com/tmbothe/SnowFlake-Architect-and-build-data-pipeline-on-AWS/main/images/snow_aws.png)
 
-1- Files is loaded into s3 bucket
-2- S3 bucket tiggers an event notification to the sqs queue
-3- SQS notifies SnowPipe
-4- SnowPipe loads data into Snowflake's landing table
-7- The CDC task pulls data from the landing table and load into the production table
-9 - Another task aggregate the data and merge into the analytics table
+1- Files is loaded into s3 bucket </br>
+2- S3 bucket tiggers an event notification to the sqs queue </br>
+3- SQS queue notifies SnowPipe </br>
+4- SnowPipe loads data into Snowflake's landing table </br>
+7- The CDC task pulls data from the landing table and load into the production table </br>
+9- Another task aggregate the data and merge into the analytics table </br>
 
-## Data description
-For this process, we will be using a set od JSON files that contains lineitem data with the structure below:
+## Loading and extracting data into snowflake (implementing streams and Change Data Capture CDC)
 
- #### Configuring Snowflake access to private S3 buckets
- We are going to be running all our scripts from the Snowflake web UI. We assume that you already have an AWS account and access to Snowflake free trial.  
- 1- login in AWS console and navigate to IAM. Create a policy with the code below, that give access to the S3 bucket we are going to be using. Replace the bucket placeholder by your bucket name. Create a role and attached the policy below.
+This section provides a set of steps that will guide us through the various nuances of loading data into Snowflake. Techniques for loading bulk data from cloud storage (AWS S3) and provides insights into the steps required to load streaming data into Snowflake by using Snowpipe.
+We are going to be running all our scripts from the Snowflake web UI. We assume that you already have an AWS account and access to Snowflake free trial.  
 
+ #### 1- Configuring Snowflake access to S3 buckets
+ - Create an S3 bucket. I have created `thim-snowflake-project`
+ - Navigate to AWS IAM , click on Policies and create policy. Go directly to JSON documenttab, and use the script below. Replace the `bucket` placehoder by your own S3 bucket. Give a name to your policy and click create policy. My policy is called: `snowflake-policy`
+ 
  ```
    {
     "Version": "2012-10-17",
@@ -46,16 +48,32 @@ For this process, we will be using a set od JSON files that contains lineitem da
     ]
 }
  ```
- 2- 
+ - Now click on Roles in the left pane and select Create Role. Select Another AWS account when prompted to select a type. For the Account ID parameter,   enter your account ID temporarily for example `00000000`. 
+Click Next: Permissions and search for the policy that we created in the previous steps, that is, the policy called  `snowflake-policy` (or the name that you assigned). Check the checkbox against the policy and click Next. Give a name to the role. Mine is `snowflake-projet-role` .
+The final screen will look like the one below. Note the ARN as highlighted as we will use it later.
+
+![image](https://raw.githubusercontent.com/tmbothe/SnowFlake-Architect-and-build-data-pipeline-on-AWS/main/images/role_arn.png)
+
+#### 2- Create integration between Snowflake and AWS S3 bucket
+
+Log in to Snowflake, where we will create a cloud storage integration object as follows. Under <b>STORAGE_AWS_ROLE_ARN </b>, paste the ARN that you copied in the previous step; <b>STORAGE_ALLOWED_LOCATIONS </b> denotes the paths that you want to allow your Snowflake instance access to. Please note that your role must be <b>ACCOUNTADMIN </b>in order to create a storage integration object.
 
  ```
-  CREATE STORAGE INTEGRATION S3_INTEGRATION
+  CREATE STORAGE INTEGRATION s3_sf_data
   TYPE = EXTERNAL_STAGE
   STORAGE_PROVIDER = S3
   ENABLED = TRUE
   STORAGE_AWS_ROLE_ARN =  '<arn:aws:iam::123456789123:role/Role_For_Snowflake>'
   STORAGE_ALLOWED_LOCATIONS = ('s3://<bucket>');
  ```
+ After running the statement above, we can run `DESC INTEGRATION s3_sf_data;` command to check if our integration was successful. Note down the values of STORAGE_AWS_IAM_USER_ARN and STORAGE_AWS_EXTERNAL_ID as highlighted below.
+
+ ![image](https://raw.githubusercontent.com/tmbothe/SnowFlake-Architect-and-build-data-pipeline-on-AWS/main/images/s3_integation.png)
+
+Now, return to the AWS console, select IAM, and click Roles from the left side menu. Select the role that we created earlier, that is, Role_For_Snowflake. Click the Trust relationships tab and click edit trust relationship. Replace the highlighted values with the one you copied from steps above.
+
+ ![image](https://raw.githubusercontent.com/tmbothe/SnowFlake-Architect-and-build-data-pipeline-on-AWS/main/images/role_integration.png)
+
  ## Project Structure
  ```
  The project has two main files, here is the description:
