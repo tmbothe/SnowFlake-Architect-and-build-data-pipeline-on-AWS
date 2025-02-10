@@ -294,3 +294,7 @@ This will create this DAG `LINEITEM_LOAD_TSK ---> REFRESH_TOP_SUPPLIERS`
 We can finally see that our `SUMMARY_SUPPLIERS` was automatically loaded .
 
 ![image](https://raw.githubusercontent.com/tmbothe/SnowFlake-Architect-and-build-data-pipeline-on-AWS/main/images/supplier_summary.png)
+
+To verify that our pipeline was successful, we can go to our database and click on our table. under the tab lineage, we can see the DAG that says `SUMMARY_SUPPLIERS` cons after `LINEITEM`.
+
+![image](https://raw.githubusercontent.com/tmbothe/SnowFlake-Architect-and-build-data-pipeline-on-AWS/main/images/top_suppliers.png)
